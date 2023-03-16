@@ -3,13 +3,14 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"strings"
 )
 
-func CASPathTransformFunc(key string) string {
+func CASPathTransformFunc(key string) PathKey {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
 
@@ -22,10 +23,24 @@ func CASPathTransformFunc(key string) string {
 		paths[i] = hashStr[from:to]
 	}
 
-	return strings.Join(paths, "/")
+	pathKey := PathKey{
+		PathName: strings.Join(paths, "/"),
+		Original: hashStr,
+	}
+
+	return pathKey
 }
 
-type PathTransformFunc func(string) string
+type PathKey struct {
+	PathName string
+	Original string
+}
+
+func (p PathKey) filename() string {
+	return fmt.Sprintf("%s/%s", p.PathName, p.Original)
+}
+
+type PathTransformFunc func(string) PathKey
 
 var DefaultPathTransformFunc = func(key string) string {
 	return key
@@ -46,13 +61,12 @@ func NewStore(opts StoreOpts) *Store {
 }
 
 func (s *Store) writeStream(key string, r io.Reader) error {
-	path := s.PathTransformFunc(key)
-	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+	pathKey := s.PathTransformFunc(key)
+	if err := os.MkdirAll(pathKey.PathName, os.ModePerm); err != nil {
 		return err
 	}
 
-	filename := "somefilename"
-	fullPath := path + "/" + filename
+	fullPath := pathKey.filename()
 
 	f, err := os.Create(fullPath)
 	if err != nil {

@@ -9,14 +9,16 @@ import (
 
 func TestPathTransformFunc(t *testing.T) {
 	key := "momsbestpicture"
-	pathname := CASPathTransformFunc(key)
-	expected := "68044/29f74/181a6/3c50c/3d81d/733a1/2f14a/353ff"
-	assert.Equal(t, expected, pathname)
+	pathKey := CASPathTransformFunc(key)
+	expectedPath := "68044/29f74/181a6/3c50c/3d81d/733a1/2f14a/353ff"
+	expectedFilename := "6804429f74181a63c50c3d81d733a12f14a353ff"
+	assert.Equal(t, expectedPath, pathKey.PathName)
+	assert.Equal(t, expectedFilename, pathKey.Original)
 }
 
-func TestStire(t *testing.T) {
+func TestStore(t *testing.T) {
 	opts := StoreOpts{
-		PathTransformFunc: DefaultPathTransformFunc,
+		PathTransformFunc: CASPathTransformFunc,
 	}
 	s := NewStore(opts)
 
