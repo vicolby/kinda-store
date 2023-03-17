@@ -79,7 +79,9 @@ func (s *Store) Delete(key string) error {
 		log.Printf("deleted %s", pathKey.fullPath())
 	}()
 
-	return os.RemoveAll(pathKey.PathName)
+	firstFolder := strings.Split(pathKey.PathName, "/")[0]
+
+	return os.RemoveAll(firstFolder)
 }
 
 func (s *Store) Read(key string) (io.Reader, error) {
