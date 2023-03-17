@@ -61,6 +61,27 @@ func NewStore(opts StoreOpts) *Store {
 	}
 }
 
+func (s *Store) Has(key string) bool {
+	pathKey := s.PathTransformFunc(key)
+
+	fi, err := os.Stat(pathKey.fullPath())
+	if err != nil {
+		return false
+	}
+
+	return !fi.IsDir()
+}
+
+func (s *Store) Delete(key string) error {
+	pathKey := s.PathTransformFunc(key)
+
+	defer func() {
+		log.Printf("deleted %s", pathKey.fullPath())
+	}()
+
+	return os.RemoveAll(pathKey.PathName)
+}
+
 func (s *Store) Read(key string) (io.Reader, error) {
 	f, err := s.readStream(key)
 	if err != nil {
