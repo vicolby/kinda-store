@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+const defaultRootFolder = "network"
+
 func CASPathTransformFunc(key string) PathKey {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
@@ -51,6 +53,7 @@ var DefaultPathTransformFunc = func(key string) PathKey {
 }
 
 type StoreOpts struct {
+	Root              string
 	PathTransformFunc PathTransformFunc
 }
 
@@ -62,6 +65,9 @@ func NewStore(opts StoreOpts) *Store {
 	if opts.PathTransformFunc == nil {
 		opts.PathTransformFunc = DefaultPathTransformFunc
 	}
+	if opts.Root == "" {
+		opts.Root = defaultRootFolder
+	}
 	return &Store{
 		StoreOpts: opts,
 	}
@@ -69,8 +75,9 @@ func NewStore(opts StoreOpts) *Store {
 
 func (s *Store) Has(key string) bool {
 	pathKey := s.PathTransformFunc(key)
+	pathKeyWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.fullPath())
 
-	fi, err := os.Stat(pathKey.fullPath())
+	fi, err := os.Stat(pathKeyWithRoot)
 	if err != nil {
 		return false
 	}
@@ -86,8 +93,9 @@ func (s *Store) Delete(key string) error {
 	}()
 
 	firstFolder := strings.Split(pathKey.PathName, "/")[0]
+	firstFolderWithRoot := fmt.Sprintf("%s/%s", s.Root, firstFolder)
 
-	return os.RemoveAll(firstFolder)
+	return os.RemoveAll(firstFolderWithRoot)
 }
 
 func (s *Store) Read(key string) (io.Reader, error) {
@@ -107,18 +115,20 @@ func (s *Store) Read(key string) (io.Reader, error) {
 
 func (s *Store) readStream(key string) (io.ReadCloser, error) {
 	pathKey := s.PathTransformFunc(key)
-	return os.Open(pathKey.fullPath())
+	pathKeyWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.fullPath())
+	return os.Open(pathKeyWithRoot)
 }
 
 func (s *Store) writeStream(key string, r io.Reader) error {
 	pathKey := s.PathTransformFunc(key)
-	if err := os.MkdirAll(pathKey.PathName, os.ModePerm); err != nil {
+	pathKeyWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.PathName)
+	if err := os.MkdirAll(pathKeyWithRoot, os.ModePerm); err != nil {
 		return err
 	}
 
-	fullPath := pathKey.fullPath()
+	fullPathWithRoot := fmt.Sprintf("%s/%s", s.Root, pathKey.fullPath())
 
-	f, err := os.Create(fullPath)
+	f, err := os.Create(fullPathWithRoot)
 	if err != nil {
 		return err
 	}
@@ -128,7 +138,7 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 		return err
 	}
 
-	log.Printf("wrote %d bytes to disk: %s", n, fullPath)
+	log.Printf("wrote %d bytes to disk: %s", n, fullPathWithRoot)
 
 	return nil
 }

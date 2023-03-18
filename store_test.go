@@ -19,6 +19,7 @@ func TestPathTransformFunc(t *testing.T) {
 
 func TestStoreDelete(t *testing.T) {
 	opts := StoreOpts{
+		Root:              "network",
 		PathTransformFunc: CASPathTransformFunc,
 	}
 	s := NewStore(opts)
