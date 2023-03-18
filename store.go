@@ -43,8 +43,11 @@ func (p PathKey) fullPath() string {
 
 type PathTransformFunc func(string) PathKey
 
-var DefaultPathTransformFunc = func(key string) string {
-	return key
+var DefaultPathTransformFunc = func(key string) PathKey {
+	return PathKey{
+		PathName: key,
+		Filename: key,
+	}
 }
 
 type StoreOpts struct {
@@ -56,6 +59,9 @@ type Store struct {
 }
 
 func NewStore(opts StoreOpts) *Store {
+	if opts.PathTransformFunc == nil {
+		opts.PathTransformFunc = DefaultPathTransformFunc
+	}
 	return &Store{
 		StoreOpts: opts,
 	}
@@ -76,7 +82,7 @@ func (s *Store) Delete(key string) error {
 	pathKey := s.PathTransformFunc(key)
 
 	defer func() {
-		log.Printf("deleted %s", pathKey.fullPath())
+		log.Printf("deleted [%s]", pathKey.fullPath())
 	}()
 
 	firstFolder := strings.Split(pathKey.PathName, "/")[0]
