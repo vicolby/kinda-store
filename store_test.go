@@ -52,6 +52,8 @@ func TestStore(t *testing.T) {
 		t.Error(err)
 	}
 
+	assert.True(t, s.Has(key))
+
 	r, err := s.Read(key)
 	if err != nil {
 		t.Error(err)
