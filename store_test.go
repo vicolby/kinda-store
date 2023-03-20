@@ -8,20 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newStore() *Store {
-	opts := StoreOpts{
-		Root:              "network",
-		PathTransformFunc: CASPathTransformFunc,
-	}
-	return NewStore(opts)
-}
-
-func tearDown(t *testing.T, s *Store) {
-	if err := s.Clear(); err != nil {
-		t.Error(err)
-	}
-}
-
 func TestPathTransformFunc(t *testing.T) {
 	key := "momsbestpicture"
 	pathKey := CASPathTransformFunc(key)
@@ -29,23 +15,6 @@ func TestPathTransformFunc(t *testing.T) {
 	expectedFilename := "6804429f74181a63c50c3d81d733a12f14a353ff"
 	assert.Equal(t, expectedPath, pathKey.PathName)
 	assert.Equal(t, expectedFilename, pathKey.Filename)
-}
-
-func TestStoreDelete(t *testing.T) {
-	s := newStore()
-
-	key := "somekey"
-	dataBytes := []byte("some data")
-	data := bytes.NewReader(dataBytes)
-
-	if err := s.writeStream(key, data); err != nil {
-		t.Error(err)
-	}
-
-	if err := s.Delete(key); err != nil {
-		t.Error(err)
-	}
-	assert.False(t, s.Has(key))
 }
 
 func TestStore(t *testing.T) {
@@ -75,6 +44,22 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, dataBytes, b)
 
 	if err := s.Delete(key); err != nil {
+		t.Error(err)
+	}
+
+	assert.False(t, s.Has(key))
+}
+
+func newStore() *Store {
+	opts := StoreOpts{
+		Root:              "network",
+		PathTransformFunc: CASPathTransformFunc,
+	}
+	return NewStore(opts)
+}
+
+func tearDown(t *testing.T, s *Store) {
+	if err := s.Clear(); err != nil {
 		t.Error(err)
 	}
 }
