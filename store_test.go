@@ -8,6 +8,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func newStore() *Store {
+	opts := StoreOpts{
+		Root:              "network",
+		PathTransformFunc: CASPathTransformFunc,
+	}
+	return NewStore(opts)
+}
+
+func tearDown(t *testing.T, s *Store) {
+	if err := s.Clear(); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestPathTransformFunc(t *testing.T) {
 	key := "momsbestpicture"
 	pathKey := CASPathTransformFunc(key)
@@ -18,11 +32,7 @@ func TestPathTransformFunc(t *testing.T) {
 }
 
 func TestStoreDelete(t *testing.T) {
-	opts := StoreOpts{
-		Root:              "network",
-		PathTransformFunc: CASPathTransformFunc,
-	}
-	s := NewStore(opts)
+	s := newStore()
 
 	key := "somekey"
 	dataBytes := []byte("some data")
@@ -39,10 +49,8 @@ func TestStoreDelete(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	opts := StoreOpts{
-		PathTransformFunc: CASPathTransformFunc,
-	}
-	s := NewStore(opts)
+	s := newStore()
+	defer tearDown(t, s)
 
 	key := "somekey"
 	dataBytes := []byte("some data")

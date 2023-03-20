@@ -85,6 +85,10 @@ func (s *Store) Has(key string) bool {
 	return !fi.IsDir()
 }
 
+func (s *Store) Clear() error {
+	return os.RemoveAll(s.Root)
+}
+
 func (s *Store) Delete(key string) error {
 	pathKey := s.PathTransformFunc(key)
 
