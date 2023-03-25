@@ -1,34 +1,35 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"time"
 
 	"github.com/vicolby/kinda-store/p2p"
 )
 
-func OnPeer(peer p2p.Peer) error {
-	fmt.Println("Doing some logic outside TCPTransport")
-	return nil
-}
-
 func main() {
-	tpcOpts := p2p.TCPTransportOpts{
+	tcpTransportOpts := p2p.TCPTransportOpts{
 		ListenAddr:    ":3000",
 		HandShakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       p2p.DefaultDecoder{},
-		OnPeer:        OnPeer,
 	}
-	tr := p2p.NewTCPTransport(tpcOpts)
+
+	tcpTransport := p2p.NewTCPTransport(tcpTransportOpts)
+
+	fileServerOpts := FileServerOpts{
+		StorageRoot:       "3000_network",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tcpTransport,
+	}
+
+	fileServer := NewFileServer(fileServerOpts)
 
 	go func() {
-		for rpc := range tr.Consumer() {
-			log.Println(rpc)
-		}
+		time.Sleep(3 * time.Second)
+		fileServer.Stop()
 	}()
-	if err := tr.ListenAndAccept(); err != nil {
+
+	if err := fileServer.Start(); err != nil {
 		log.Fatal(err)
 	}
-
-	select {}
 }
