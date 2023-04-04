@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"sync"
 
@@ -38,6 +41,48 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 	}
 }
 
+type Message struct {
+	From string
+	Payload any
+}
+
+type DataMessage struct {
+	Key  string
+	Data []byte
+}
+
+func (f *FileServer) broadcast(msg *Message) error {
+	peers := []io.Writer{}
+
+	for _, peer := range f.peers {
+		peers = append(peers, peer)
+	}
+
+	mw := io.MultiWriter(peers...)
+
+	return gob.NewEncoder(mw).Encode(msg)
+}
+
+func (f *FileServer) StoreData(key string, r io.Reader) error {
+
+	buf := new(bytes.Buffer)
+	tee := io.TeeReader(r, buf)
+
+	if err := f.Store.Write(key, tee); err != nil {
+		return err
+	}
+
+	p := &DataMessage{
+		Key:  key,
+		Data: buf.Bytes(),
+	}
+
+	return f.broadcast(&Message{
+		From: "TODO",
+		Payload: p,
+	})
+}
+
 func (f *FileServer) Stop() {
 	close(f.quitch)
 }
@@ -67,6 +112,8 @@ func (f *FileServer) loop() {
 		}
 	}
 }
+
+func (f *FileServer) 
 
 func (f *FileServer) bootstrapNetwork() error {
 	for _, addr := range f.BootstrapNodes {
