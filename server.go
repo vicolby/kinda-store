@@ -42,13 +42,13 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 }
 
 type Message struct {
-	From string
+	From    string
 	Payload any
 }
 
-type DataMessage struct {
+type MessageStoreFile struct {
 	Key  string
-	Data []byte
+	Size int
 }
 
 func (f *FileServer) broadcast(msg *Message) error {
@@ -66,21 +66,22 @@ func (f *FileServer) broadcast(msg *Message) error {
 func (f *FileServer) StoreData(key string, r io.Reader) error {
 
 	buf := new(bytes.Buffer)
-	tee := io.TeeReader(r, buf)
-
-	if err := f.Store.Write(key, tee); err != nil {
+	msg := Message{
+		Payload: MessageStoreFile{
+			Key:  key,
+			Size: 15,
+		},
+	}
+	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
 		return err
 	}
-
-	p := &DataMessage{
-		Key:  key,
-		Data: buf.Bytes(),
+	for _, peer := range f.peers {
+		if err := peer.Send(buf.Bytes()); err != nil {
+			return err
+		}
 	}
 
-	return f.broadcast(&Message{
-		From: "TODO",
-		Payload: p,
-	})
+	return nil
 }
 
 func (f *FileServer) Stop() {
@@ -107,13 +108,41 @@ func (f *FileServer) loop() {
 		select {
 		case <-f.quitch:
 			return
-		case msg := <-f.Transport.Consumer():
-			fmt.Println(msg)
+		case rpc := <-f.Transport.Consumer():
+			var msg Message
+			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
+				log.Println(err)
+			}
+
+			if err := f.handleMessage(rpc.From.String(), &msg); err != nil {
+				log.Println(err)
+			}
 		}
 	}
 }
 
-func (f *FileServer) 
+func (f *FileServer) handleMessage(from string, msg *Message) error {
+	switch v := msg.Payload.(type) {
+	case MessageStoreFile:
+		return f.handleMessageStoreFile(from, v)
+	}
+	return nil
+}
+
+func (f *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) error {
+	peer, ok := f.peers[from]
+	if !ok {
+		return fmt.Errorf("could not find (%s) peer in peer list", peer)
+	}
+
+	if err := f.Store.Write(msg.Key, peer); err != nil {
+		return err
+	}
+
+	peer.(*p2p.TCPPeer).Wg.Done()
+
+	return nil
+}
 
 func (f *FileServer) bootstrapNetwork() error {
 	for _, addr := range f.BootstrapNodes {
@@ -141,4 +170,8 @@ func (f *FileServer) Start() error {
 
 	f.loop()
 	return nil
+}
+
+func init() {
+	gob.Register(MessageStoreFile{})
 }
