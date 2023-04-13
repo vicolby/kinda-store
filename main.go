@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"log"
+	"time"
 
 	"github.com/vicolby/kinda-store/p2p"
 )
@@ -37,5 +39,12 @@ func main() {
 		log.Fatal(s1.Start())
 	}()
 
-	s2.Start()
+	time.Sleep(3 * time.Second)
+	go s2.Start()
+	time.Sleep(3 * time.Second)
+
+	data := bytes.NewBuffer([]byte("Hello World!"))
+	s2.StoreData("hello", data)
+
+	select {}
 }
