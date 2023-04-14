@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/vicolby/kinda-store/p2p"
 )
@@ -48,37 +49,48 @@ type Message struct {
 
 type MessageStoreFile struct {
 	Key  string
-	Size int
-}
-
-func (f *FileServer) broadcast(msg *Message) error {
-	peers := []io.Writer{}
-
-	for _, peer := range f.peers {
-		peers = append(peers, peer)
-	}
-
-	mw := io.MultiWriter(peers...)
-
-	return gob.NewEncoder(mw).Encode(msg)
+	Size int64
 }
 
 func (f *FileServer) StoreData(key string, r io.Reader) error {
+	var (
+		fileBuffer = new(bytes.Buffer)
+		tee        = io.TeeReader(r, fileBuffer)
+	)
 
-	buf := new(bytes.Buffer)
+	size, err := f.Store.Write(key, tee)
+	if err != nil {
+		return err
+	}
+
 	msg := Message{
 		Payload: MessageStoreFile{
 			Key:  key,
-			Size: 15,
+			Size: size,
 		},
 	}
-	if err := gob.NewEncoder(buf).Encode(msg); err != nil {
+
+	msgBuf := new(bytes.Buffer)
+
+	if err := gob.NewEncoder(msgBuf).Encode(msg); err != nil {
 		return err
 	}
+
 	for _, peer := range f.peers {
-		if err := peer.Send(buf.Bytes()); err != nil {
+		if err := peer.Send(msgBuf.Bytes()); err != nil {
 			return err
 		}
+	}
+
+	time.Sleep(time.Second * 3)
+
+	for _, peer := range f.peers {
+		n, err := io.Copy(peer, fileBuffer)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Received and written bytes to disk:", n)
 	}
 
 	return nil
@@ -135,9 +147,12 @@ func (f *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 		return fmt.Errorf("could not find (%s) peer in peer list", peer)
 	}
 
-	if err := f.Store.Write(msg.Key, peer); err != nil {
+	n, err := f.Store.Write(msg.Key, io.LimitReader(peer, msg.Size))
+	if err != nil {
 		return err
 	}
+
+	log.Printf("wrote %d bytes to disk\n", n)
 
 	peer.(*p2p.TCPPeer).Wg.Done()
 
